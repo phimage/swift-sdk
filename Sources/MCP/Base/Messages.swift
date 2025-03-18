@@ -155,23 +155,8 @@ final class TypedRequestHandler<M: Method>: RequestHandlerBox, @unchecked Sendab
         let decoder = JSONDecoder()
 
         // Create a concrete request from the type-erased one
-        let params: M.Parameters
-        if request.params == .null {
-            if M.Parameters.self == Empty.self {
-                params = Empty() as! M.Parameters
-            } else if let type = M.Parameters.self as? NotRequired.Type {
-                params = type.init() as! M.Parameters
-            } else {
-                throw DecodingError.dataCorrupted(
-                    DecodingError.Context(
-                        codingPath: [],
-                        debugDescription: "Missing required params field"))
-            }
-        } else {
-            let data = try encoder.encode(request.params)
-            params = try decoder.decode(M.Parameters.self, from: data)
-        }
-
+        let data = try encoder.encode(request.params)
+        let params = try decoder.decode(M.Parameters.self, from: data)
         let typedRequest = Request<M>(id: request.id, method: M.name, params: params)
 
         // Handle with concrete type
