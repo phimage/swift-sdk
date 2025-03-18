@@ -260,4 +260,78 @@ struct RequestTests {
             from: withCursor.data(using: .utf8)!)
         #expect(decodedWithCursor.params.cursor == "next-page")
     }
+
+    @Test("AnyRequest conversion - Empty parameters")
+    func testAnyRequestConversionEmpty() async throws {
+        // Create an AnyRequest with null params
+        let anyRequest = Request<AnyMethod>(id: 1, method: EmptyMethod.name, params: .null)
+
+        let handler = TypedRequestHandler<EmptyMethod> { request in
+            #expect(request.id == 1)
+            #expect(request.method == EmptyMethod.name)
+            return EmptyMethod.response(id: request.id)
+        }
+
+        // Verify the handler can process the request without throwing
+        _ = try await handler(anyRequest)
+    }
+
+    @Test("AnyRequest conversion - NotRequired parameters")
+    func testAnyRequestConversionNotRequired() async throws {
+        // Create an AnyRequest with null params
+        let anyRequest = Request<AnyMethod>(id: 1, method: Ping.name, params: .null)
+
+        let handler = TypedRequestHandler<Ping> { request in
+            #expect(request.id == 1)
+            #expect(request.method == Ping.name)
+            return Ping.response(id: request.id)
+        }
+
+        // Verify the handler can process the request without throwing
+        _ = try await handler(anyRequest)
+    }
+
+    @Test("AnyRequest conversion - Required parameters")
+    func testAnyRequestConversionRequired() async throws {
+        // Test with null params (should fail)
+        let nullParamsRequest = Request<AnyMethod>(id: 1, method: CallTool.name, params: .null)
+        let handler = TypedRequestHandler<CallTool> { _ in
+            Issue.record("Handler should not be called")
+            return .init(id: 1, result: .init(content: [.text("success")]))
+        }
+
+        await #expect(throws: DecodingError.self) {
+            _ = try await handler(nullParamsRequest)
+        }
+
+        // Test with valid params (should succeed)
+        let validParams = Value.object(["name": .string("test-tool")])
+        let validRequest = Request<AnyMethod>(id: 1, method: CallTool.name, params: validParams)
+
+        let validHandler = TypedRequestHandler<CallTool> { request in
+            #expect(request.id == 1)
+            #expect(request.method == CallTool.name)
+            #expect(request.params.name == "test-tool")
+            return .init(id: 1, result: .init(content: [.text("success")]))
+        }
+
+        // Verify the handler can process the request without throwing
+        _ = try await validHandler(validRequest)
+    }
+
+    @Test("AnyRequest conversion - Invalid parameters")
+    func testAnyRequestConversionInvalid() async throws {
+        // Create an AnyRequest with invalid params structure
+        let invalidParams = Value.object(["invalid": .string("value")])
+        let anyRequest = Request<AnyMethod>(id: 1, method: CallTool.name, params: invalidParams)
+
+        let handler = TypedRequestHandler<CallTool> { _ in
+            Issue.record("Handler should not be called")
+            return .init(id: 1, error: .invalidParams(nil))
+        }
+
+        await #expect(throws: DecodingError.self) {
+            _ = try await handler(anyRequest)
+        }
+    }
 }
