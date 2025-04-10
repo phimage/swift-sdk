@@ -79,20 +79,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Swift
-        shell: powershell
-        run: |
-          # Enable Developer Mode
-          reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
-
-          # Install Visual Studio dependencies
-          winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --silent --override "--wait --quiet --add Microsoft.VisualStudio.Component.Windows11SDK.22000 --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64"
-
-          # Install Swift
-          winget install --id Swift.Toolchain -e
-
-          # Add Swift to PATH
-          echo "$env:ProgramFiles\Swift\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Setup Swift
+        uses: compnerd/gha-setup-swift@15100508ed98274c660b39a3d171f9b9b80926c5
+        with:
+          branch: swift-${{ matrix.swift-version }}-release
+          tag: ${{ matrix.swift-version }}-RELEASE
 
       - name: Build
         run: swift build -v
