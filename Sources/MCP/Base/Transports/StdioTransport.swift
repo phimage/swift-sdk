@@ -13,12 +13,16 @@ import struct Foundation.Data
     import Darwin.POSIX
 #elseif canImport(Glibc)
     import Glibc
-#elseif canImport(ucrt)
-    import ucrt
-    import WinSDK
+#elseif os(Windows)
+    #if canImport(ucrt)
+        import ucrt
+    #endif
+    #if canImport(WinSDK)
+        import WinSDK
+    #endif
 #endif
 
-#if canImport(Darwin) || canImport(Glibc) || canImport(ucrt)
+#if canImport(Darwin) || canImport(Glibc) || os(Windows)
     /// Standard input/output transport implementation
     public actor StdioTransport: Transport {
         private let input: FileDescriptor
@@ -77,14 +81,19 @@ import struct Foundation.Data
                 guard result >= 0 else {
                     throw MCPError.transportError(Errno(rawValue: CInt(errno)))
                 }
-            #elseif canImport(ucrt)
-                // Windows non-blocking mode setup
-                var mode: UInt32 = 1  // 1 = Non-blocking mode
-                let result = ioctlsocket(SOCKET(fileDescriptor.rawValue), FIONBIO, &mode)
-                guard result == 0 else {
-                    let error = WSAGetLastError()
-                    throw MCPError.transportError(POSIXErrorCode(rawValue: CInt(error)))
-                }
+            #elseif os(Windows)
+                #if canImport(ucrt) && canImport(WinSDK)
+                    // Windows non-blocking mode setup
+                    var mode: UInt32 = 1  // 1 = Non-blocking mode
+                    let result = ioctlsocket(SOCKET(fileDescriptor.rawValue), FIONBIO, &mode)
+                    guard result == 0 else {
+                        let error = WSAGetLastError()
+                        throw MCPError.transportError(POSIXErrorCode(rawValue: CInt(error)))
+                    }
+                #else
+                    throw MCPError.internalError(
+                        "Windows socket libraries not available")
+                #endif
             #else
                 // For platforms where non-blocking operations aren't supported
                 throw MCPError.internalError(
@@ -146,8 +155,12 @@ import struct Foundation.Data
             guard isConnected else {
                 #if canImport(Darwin) || canImport(Glibc) || canImport(Musl)
                     throw MCPError.transportError(Errno(rawValue: ENOTCONN))
-                #elseif canImport(ucrt)
-                    throw MCPError.transportError(POSIXErrorCode(rawValue: WSAENOTCONN))
+                #elseif os(Windows)
+                    #if canImport(ucrt) && canImport(WinSDK)
+                        throw MCPError.transportError(POSIXErrorCode(rawValue: WSAENOTCONN))
+                    #else
+                        throw MCPError.internalError("Transport not connected")
+                    #endif
                 #else
                     throw MCPError.internalError("Transport not connected")
                 #endif
