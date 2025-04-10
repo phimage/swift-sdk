@@ -82,17 +82,17 @@ jobs:
       - name: Install Swift
         shell: powershell
         run: |
-          # Download Swift
-          $url = "https://download.swift.org/swift-${{ matrix.swift-version }}-release/windows10/swift-${{ matrix.swift-version }}-RELEASE/swift-${{ matrix.swift-version }}-RELEASE-windows10.exe"
-          $output = "$env:TEMP\swift-installer.exe"
-          Invoke-WebRequest -Uri $url -OutFile $output
+          # Enable Developer Mode
+          reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
 
-          # Install Swift silently
-          Start-Process -FilePath $output -ArgumentList "/quiet" -Wait
+          # Install Visual Studio dependencies
+          winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --silent --override "--wait --quiet --add Microsoft.VisualStudio.Component.Windows11SDK.22000 --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64"
+
+          # Install Swift
+          winget install --id Swift.Toolchain -e
 
           # Add Swift to PATH
-          echo "C:\Library\Swift-development\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "C:\Library\Swift-development\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "$env:ProgramFiles\Swift\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Build
         run: swift build -v
