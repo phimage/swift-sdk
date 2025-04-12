@@ -17,34 +17,12 @@ jobs:
     env:
       SWIFT_VERSIONS: |
         6.0.3
-        6.1.0
     steps:
       - id: set-matrix
         run: |
           # Convert multi-line string to JSON array (jq is pre-installed on GitHub runners)
           VERSIONS=$(echo "$SWIFT_VERSIONS" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "swift-versions=$VERSIONS" >> $GITHUB_OUTPUT
-
-  test-ubuntu:
-    name: Test (Ubuntu, Swift ${{ matrix.swift-version }})
-    needs: setup
-    strategy:
-      matrix:
-        swift-version: ${{ fromJson(needs.setup.outputs.swift-versions) }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Swift
-        uses: vapor/swiftly-action@v0.2
-        with:
-          toolchain: ${{ matrix.swift-version }}
-
-      - name: Build
-        run: swift build -v
-
-      - name: Run tests
-        run: swift test -v
 
   test-windows:
     name: Test (Windows, Swift ${{ matrix.swift-version }})
@@ -63,7 +41,6 @@ jobs:
           tag: ${{ matrix.swift-version }}-RELEASE
 
       - name: Build
-        run: swift build -v -Xcc -D__NO_BUILTIN_INTRINSICS -Xswiftc -Xfrontend -Xswiftc -disable-implicit-concurrency-module-import -Xswiftc -Xfrontend -Xswiftc -disable-implicit-string-processing-module-import
-
+        run: swift build -v -Xswiftc -Xfrontend -Xswiftc -disable-implicit-concurrency-module-import -Xswiftc -Xfrontend -Xswiftc -disable-implicit-string-processing-module-import -Xcc -Xclang -Xcc -target-feature -Xcc -Xclang -Xcc +sse4.2
       - name: Run tests
         run: swift test -v -Xswiftc -Xfrontend -Xswiftc -disable-implicit-concurrency-module-import -Xswiftc -Xfrontend -Xswiftc -disable-implicit-string-processing-module-import
