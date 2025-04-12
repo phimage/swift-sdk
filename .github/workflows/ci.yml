@@ -63,7 +63,7 @@ jobs:
           tag: ${{ matrix.swift-version }}-RELEASE
 
       - name: Build
-        run: swift build -v -Xswiftc -Xfrontend -Xswiftc -disable-implicit-concurrency-module-import -Xswiftc -Xfrontend -Xswiftc -disable-implicit-string-processing-module-import
+        run: swift build -v -Xcc -D__NO_BUILTIN_INTRINSICS -Xswiftc -Xfrontend -Xswiftc -disable-implicit-concurrency-module-import -Xswiftc -Xfrontend -Xswiftc -disable-implicit-string-processing-module-import
 
       - name: Run tests
         run: swift test -v -Xswiftc -Xfrontend -Xswiftc -disable-implicit-concurrency-module-import -Xswiftc -Xfrontend -Xswiftc -disable-implicit-string-processing-module-import
