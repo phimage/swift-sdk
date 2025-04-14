@@ -22,6 +22,9 @@ public enum MCPError: Swift.Error, Sendable {
     case connectionClosed
     case transportError(Swift.Error)
 
+    // Client specific errors
+    case clientTimeout
+
     /// The JSON-RPC 2.0 error code
     public var code: Int {
         switch self {
@@ -33,6 +36,7 @@ public enum MCPError: Swift.Error, Sendable {
         case .serverError(let code, _): return code
         case .connectionClosed: return -32000
         case .transportError: return -32001
+        case .clientTimeout: return -32002
         }
     }
 
@@ -72,6 +76,8 @@ extension MCPError: LocalizedError {
             return "Connection closed"
         case .transportError(let error):
             return "Transport error: \(error.localizedDescription)"
+        case .clientTimeout:
+            return "Client timeout"
         }
     }
 
@@ -93,6 +99,8 @@ extension MCPError: LocalizedError {
             return "The connection to the server was closed"
         case .transportError(let error):
             return (error as? LocalizedError)?.failureReason ?? error.localizedDescription
+        case .clientTimeout:
+            return "The request timed out"
         }
     }
 
@@ -108,6 +116,8 @@ extension MCPError: LocalizedError {
             return "Verify the parameters match the method's expected parameters"
         case .connectionClosed:
             return "Try reconnecting to the server"
+        case .clientTimeout:
+            return "Try again later"
         default:
             return nil
         }
@@ -161,6 +171,8 @@ extension MCPError: Codable {
                 ["error": error.localizedDescription],
                 forKey: .data
             )
+        case .clientTimeout:
+            break
         }
     }
 
@@ -204,6 +216,8 @@ extension MCPError: Codable {
                     userInfo: [NSLocalizedDescriptionKey: underlyingErrorString]
                 )
             )
+        case -32002:
+            self = .clientTimeout
         default:
             self = .serverError(code: code, message: message)
         }
@@ -240,6 +254,8 @@ extension MCPError: Hashable {
             break
         case .transportError(let error):
             hasher.combine(error.localizedDescription)
+        case .clientTimeout:
+            break
         }
     }
 }

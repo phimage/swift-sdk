@@ -402,6 +402,101 @@ public actor Client {
         }
     }
 
+    /// Create a task that times out after a specified duration
+    ///
+    /// This method wraps an existing task with timeout behavior, cancelling the original
+    /// task and throwing an error if the duration elapses before the task completes.
+    ///
+    /// > Tip: Timeouts are particularly useful for individual long-running tasks where you want to
+    /// > ensure completion within a specific time window, preventing indefinite waits.
+    ///
+    /// ## Examples
+    ///
+    /// ### Tool call with timeout
+    /// ```swift
+    /// let complexTask = client.send(CallTool.request(.init(
+    ///     name: "analyze_data",
+    ///     arguments: ["dataset": .string("large_financial_dataset")]
+    /// )))
+    ///
+    /// do {
+    ///     // Apply 30-second timeout to the task
+    ///     let results = try await client.withTimeout(
+    ///         complexTask,
+    ///         duration: .seconds(30)
+    ///     ).value
+    ///
+    ///     print("Analysis complete with \(results.content.count) results")
+    /// } catch is MCPError.clientTimeout {
+    ///     print("Analysis timed out after 30 seconds")
+    /// }
+    /// ```
+    ///
+    /// ### Concurrent tool calls with different timeouts
+    /// ```swift
+    /// // Search should be quick
+    /// async let searchResults = client.withTimeout(
+    ///     client.send(CallTool.request(.init(
+    ///         name: "search_web",
+    ///         arguments: ["query": .string("swift concurrency")]
+    ///     ))),
+    ///     duration: .seconds(5)
+    /// ).value
+    ///
+    /// // AI processing might take longer
+    /// async let aiResults = client.withTimeout(
+    ///     client.send(CallTool.request(.init(
+    ///         name: "ai_process_image",
+    ///         arguments: ["image_url": .string("https://example.com/image.jpg")]
+    ///     ))),
+    ///     duration: .seconds(60)
+    /// ).value
+    ///
+    /// do {
+    ///     let (search, ai) = try await (searchResults, aiResults)
+    ///     print("Search found \(search.content.count) results")
+    ///     print("AI processing produced \(ai.content.count) insights")
+    /// } catch is MCPError.clientTimeout {
+    ///     print("One of the operations timed out")
+    /// } catch {
+    ///     print("Error: \(error)")
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - task: The task to wrap with a timeout
+    ///   - duration: The duration to wait before timing out
+    ///   - tolerance: The allowed tolerance for the timeout timing
+    ///   - clock: The clock to use for measuring time
+    /// - Returns: A new task that will complete with the result or throw a timeout error
+    public func withTimeout<C, T>(
+        _ task: Task<T, Swift.Error>,
+        duration: C.Duration,
+        tolerance: C.Duration? = nil,
+        clock: C = ContinuousClock()
+    ) -> Task<T, Swift.Error> where C: Clock {
+        Task {
+            try await withThrowingTaskGroup(of: T.self) { group in
+                // Add the main task
+                group.addTask {
+                    try await task.value
+                }
+
+                // Add timeout task
+                group.addTask {
+                    try await Task.sleep(for: duration, tolerance: tolerance, clock: clock)
+                    task.cancel()
+                    throw MCPError.clientTimeout
+                }
+
+                // Return first result or throw first error
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
+        }
+    }
+
     private func addPendingRequest<T: Sendable & Decodable>(
         id: ID,
         continuation: CheckedContinuation<T, Swift.Error>,
