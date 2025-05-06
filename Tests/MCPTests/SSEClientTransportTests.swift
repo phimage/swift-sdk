@@ -1,11 +1,11 @@
-import EventSource
-@preconcurrency import Foundation
-import Logging
-import Testing
-
-@testable import MCP
-
 #if swift(>=6.1) && !os(Linux)
+    import EventSource
+    @preconcurrency import Foundation
+    import Logging
+    import Testing
+
+    @testable import MCP
+
     final class MockSSEURLProtocol: URLProtocol, @unchecked Sendable {
         static let requestHandlerStorage = RequestHandlerStorage()
         private var loadingTask: Task<Void, Swift.Error>?
